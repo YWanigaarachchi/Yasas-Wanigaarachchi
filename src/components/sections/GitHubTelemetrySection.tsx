@@ -1,18 +1,23 @@
 import { motion } from 'framer-motion';
 import {
   Activity,
+  ArrowRight,
   ExternalLink,
+  Flame,
   FolderGit2,
-  GitFork,
   Star,
+  TrendingUp,
   Users,
 } from 'lucide-react';
-import type { GitHubTelemetryData } from '@/types/portfolio';
+import type { GitHubContributionsData, GitHubTelemetryData } from '@/types/portfolio';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import { ContributionHeatmap } from '@/components/github/ContributionHeatmap';
 
 interface GitHubTelemetrySectionProps {
   telemetry: GitHubTelemetryData;
+  contributions: GitHubContributionsData;
   isLoading: boolean;
+  onOpenFullPage: () => void;
 }
 
 const LANG_COLORS: Record<string, string> = {
@@ -27,7 +32,9 @@ const LANG_COLORS: Record<string, string> = {
 
 export function GitHubTelemetrySection({
   telemetry,
+  contributions,
   isLoading,
+  onOpenFullPage,
 }: GitHubTelemetrySectionProps) {
   const recentRepos = telemetry.repos.slice(0, 6);
 
@@ -39,25 +46,36 @@ export function GitHubTelemetrySection({
             index="05"
             eyebrow="Live GitHub Telemetry"
             title="Real-Time Open-Source Activity"
-            description="Directly synchronized with the GitHub REST API (cached client-side with graceful offline fallback)."
+            description="Synchronized with GitHub REST & Contributions APIs (cached client-side with graceful offline fallback)."
           />
-          <div className="mb-12 inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-3.5 py-1.5 font-mono text-xs text-slate-600 dark:border-slate-800 dark:bg-[#0C1222] dark:text-slate-300 sm:self-auto">
-            <Activity
-              className={`h-3.5 w-3.5 ${
-                isLoading
-                  ? 'animate-pulse text-amber-400'
+          <div className="mb-12 flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 font-mono text-xs text-slate-600 dark:border-slate-800 dark:bg-[#0C1222] dark:text-slate-300">
+              <Activity
+                className={`h-3.5 w-3.5 ${
+                  isLoading
+                    ? 'animate-pulse text-amber-400'
+                    : telemetry.isFallback
+                      ? 'text-cyan-400'
+                      : 'text-emerald-400'
+                }`}
+              />
+              <span>
+                {isLoading
+                  ? 'Syncing GitHub API...'
                   : telemetry.isFallback
-                    ? 'text-cyan-400'
-                    : 'text-emerald-400'
-              }`}
-            />
-            <span>
-              {isLoading
-                ? 'Syncing GitHub API...'
-                : telemetry.isFallback
-                  ? 'Curated Snapshot'
-                  : 'Live GitHub Sync'}
-            </span>
+                    ? 'Curated Snapshot'
+                    : 'Live GitHub Sync'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenFullPage}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-violet-600/20 transition hover:bg-violet-500"
+            >
+              <span>Full Telemetry Page</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
 
@@ -65,28 +83,28 @@ export function GitHubTelemetrySection({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
+              label: 'Contributions (Last Year)',
+              value: contributions.totalLastYear.toLocaleString(),
+              icon: TrendingUp,
+              accent: 'text-emerald-500',
+            },
+            {
+              label: 'Longest Streak',
+              value: `${contributions.longestStreak} days`,
+              icon: Flame,
+              accent: 'text-amber-500',
+            },
+            {
               label: 'Public Repositories',
               value: telemetry.user.publicRepos,
               icon: FolderGit2,
               accent: 'text-violet-500',
             },
             {
-              label: 'Original Projects',
-              value: telemetry.originalRepoCount,
-              icon: GitFork,
-              accent: 'text-cyan-500',
-            },
-            {
               label: 'GitHub Followers',
               value: telemetry.user.followers,
               icon: Users,
-              accent: 'text-emerald-500',
-            },
-            {
-              label: 'Total Stars',
-              value: telemetry.totalStars,
-              icon: Star,
-              accent: 'text-amber-400',
+              accent: 'text-cyan-500',
             },
           ].map((stat) => (
             <div
@@ -104,6 +122,11 @@ export function GitHubTelemetrySection({
               </div>
             </div>
           ))}
+        </div>
+
+        {/* 365-Day Contributions Heatmap Preview */}
+        <div className="mt-6">
+          <ContributionHeatmap data={contributions} compact />
         </div>
 
         {/* Language Distribution Bar */}
@@ -181,7 +204,9 @@ export function GitHubTelemetrySection({
                 <span className="inline-flex items-center gap-1.5">
                   <span
                     className={`h-2 w-2 rounded-full ${
-                      repo.language ? (LANG_COLORS[repo.language] ?? 'bg-violet-500') : 'bg-slate-400'
+                      repo.language
+                        ? (LANG_COLORS[repo.language] ?? 'bg-violet-500')
+                        : 'bg-slate-400'
                     }`}
                   />
                   {repo.language ?? 'Docs'}
@@ -193,6 +218,26 @@ export function GitHubTelemetrySection({
               </div>
             </motion.a>
           ))}
+        </div>
+
+        {/* Dedicated Page Callout */}
+        <div className="mt-6 flex flex-col items-center justify-between gap-4 rounded-2xl border border-violet-500/25 bg-gradient-to-r from-violet-600/10 via-fuchsia-500/5 to-cyan-500/10 p-5 sm:flex-row">
+          <div>
+            <div className="font-display text-sm font-bold text-slate-900 dark:text-white">
+              Want deeper telemetry, monthly velocity &amp; searchable repos?
+            </div>
+            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+              Explore the dedicated Live GitHub Telemetry &amp; 365-Day Contributions Dashboard.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenFullPage}
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-violet-600/20 transition hover:bg-violet-500"
+          >
+            <span>Open Telemetry &amp; Contributions</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </section>
