@@ -1,16 +1,26 @@
 import { SITE_CONFIG } from '@/config/site';
 import { DEVELOPER_PROFILE } from '@/data/profile';
-import type { GitHubRepoSummary, GitHubTelemetryData, GitHubUserSummary } from '@/types/portfolio';
+import type {
+  ContributionDay,
+  ContributionLevel,
+  GitHubActivityEvent,
+  GitHubContributionsData,
+  GitHubRepoSummary,
+  GitHubTelemetryData,
+  GitHubUserSummary,
+  MonthlyContribution,
+} from '@/types/portfolio';
 
-interface CachedTelemetry {
+interface CachedPayload<T> {
   timestamp: number;
-  data: GitHubTelemetryData;
+  data: T;
 }
 
 const FALLBACK_REPOS: GitHubRepoSummary[] = [
   {
     name: 'ContextSync-AI',
-    description: 'Intelligent Retrieval-Augmented Generation system connecting LLMs to proprietary knowledge bases.',
+    description:
+      'Intelligent Retrieval-Augmented Generation system connecting LLMs to proprietary knowledge bases.',
     language: 'TypeScript',
     stars: 1,
     forks: 0,
@@ -22,7 +32,8 @@ const FALLBACK_REPOS: GitHubRepoSummary[] = [
   },
   {
     name: 'Resortify-hms',
-    description: 'Decoupled Hotel Management System with Node.js/Express API, React + Tailwind dashboard, dual-currency sync & KOT.',
+    description:
+      'Decoupled Hotel Management System with Node.js/Express API, React + Tailwind dashboard, dual-currency sync & KOT.',
     language: 'JavaScript',
     stars: 0,
     forks: 0,
@@ -34,7 +45,8 @@ const FALLBACK_REPOS: GitHubRepoSummary[] = [
   },
   {
     name: 'Siyala_HMS1',
-    description: 'Multi-chain Hotel Management System built for Sri Lankan hospitality across Kandy & Hikkaduwa.',
+    description:
+      'Multi-chain Hotel Management System built for Sri Lankan hospitality across Kandy & Hikkaduwa.',
     language: 'JavaScript',
     stars: 1,
     forks: 0,
@@ -46,7 +58,8 @@ const FALLBACK_REPOS: GitHubRepoSummary[] = [
   },
   {
     name: 'athithi-hms',
-    description: 'Modern Hotel Management System for Sri Lankan boutique villas and luxury resorts.',
+    description:
+      'Modern Hotel Management System for Sri Lankan boutique villas and luxury resorts.',
     language: 'JavaScript',
     stars: 0,
     forks: 0,
@@ -58,7 +71,8 @@ const FALLBACK_REPOS: GitHubRepoSummary[] = [
   },
   {
     name: 'lankarest-hms',
-    description: 'Scalable and modular Hotel Management System for Sri Lankan tourism and hospitality.',
+    description:
+      'Scalable and modular Hotel Management System for Sri Lankan tourism and hospitality.',
     language: 'JavaScript',
     stars: 0,
     forks: 0,
@@ -70,7 +84,8 @@ const FALLBACK_REPOS: GitHubRepoSummary[] = [
   },
   {
     name: 'GreenLife_Wellness_Center',
-    description: 'Holistic wellness portal for yoga, therapy, and nutrition with booking & therapist dashboards.',
+    description:
+      'Holistic wellness portal for yoga, therapy, and nutrition with booking & therapist dashboards.',
     language: 'PHP',
     stars: 1,
     forks: 0,
@@ -105,6 +120,30 @@ const FALLBACK_REPOS: GitHubRepoSummary[] = [
     updatedAt: '2025-10-02T18:39:31Z',
   },
 ];
+
+function readCache<T>(key: string): T | null {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedPayload<T>;
+    if (Date.now() - parsed.timestamp > SITE_CONFIG.cacheTtlMs) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache<T>(key: string, data: T): void {
+  try {
+    const payload: CachedPayload<T> = { timestamp: Date.now(), data };
+    sessionStorage.setItem(key, JSON.stringify(payload));
+  } catch {
+    // Ignore storage quota / privacy mode errors
+  }
+}
 
 function computeLanguageDistribution(repos: GitHubRepoSummary[]) {
   const counts = new Map<string, number>();
@@ -151,33 +190,14 @@ export function getFallbackGitHubTelemetry(): GitHubTelemetryData {
   };
 }
 
-function readCache(): GitHubTelemetryData | null {
-  try {
-    const raw = sessionStorage.getItem(SITE_CONFIG.cacheKey);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as CachedTelemetry;
-    if (Date.now() - parsed.timestamp > SITE_CONFIG.cacheTtlMs) {
-      sessionStorage.removeItem(SITE_CONFIG.cacheKey);
-      return null;
-    }
-    return parsed.data;
-  } catch {
-    return null;
+export async function fetchGitHubTelemetry(
+  signal?: AbortSignal,
+  forceRefresh = false
+): Promise<GitHubTelemetryData> {
+  if (!forceRefresh) {
+    const cached = readCache<GitHubTelemetryData>(SITE_CONFIG.cacheKey);
+    if (cached) return cached;
   }
-}
-
-function writeCache(data: GitHubTelemetryData): void {
-  try {
-    const payload: CachedTelemetry = { timestamp: Date.now(), data };
-    sessionStorage.setItem(SITE_CONFIG.cacheKey, JSON.stringify(payload));
-  } catch {
-    // Ignore storage quota / privacy mode errors
-  }
-}
-
-export async function fetchGitHubTelemetry(signal?: AbortSignal): Promise<GitHubTelemetryData> {
-  const cached = readCache();
-  if (cached) return cached;
 
   const { githubApiBase, githubUsername } = SITE_CONFIG;
   const headers: HeadersInit = { Accept: 'application/vnd.github+json' };
@@ -228,7 +248,9 @@ export async function fetchGitHubTelemetry(signal?: AbortSignal): Promise<GitHub
   const data: GitHubTelemetryData = {
     user,
     repos: originalRepos.filter(
-      (r) => r.name !== githubUsername && r.name !== 'awesome-github-profile-readme-templates'
+      (r) =>
+        r.name !== githubUsername &&
+        r.name !== 'awesome-github-profile-readme-templates'
     ),
     languageDistribution: computeLanguageDistribution(originalRepos),
     totalStars: allRepos.reduce((sum, r) => sum + r.stars, 0),
@@ -237,6 +259,235 @@ export async function fetchGitHubTelemetry(signal?: AbortSignal): Promise<GitHub
     isFallback: false,
   };
 
-  writeCache(data);
+  writeCache(SITE_CONFIG.cacheKey, data);
   return data;
+}
+
+function summarizeContributions(
+  days: ContributionDay[],
+  totalOverride?: number,
+  isFallback = false
+): GitHubContributionsData {
+  let longestStreak = 0;
+  let running = 0;
+  let activeDays = 0;
+  let computedTotal = 0;
+  let bestDay: { date: string; count: number } | null = null;
+  const monthMap = new Map<string, number>();
+
+  for (const day of days) {
+    computedTotal += day.count;
+    if (day.count > 0) {
+      activeDays += 1;
+      running += 1;
+      if (running > longestStreak) longestStreak = running;
+      if (!bestDay || day.count > bestDay.count) {
+        bestDay = { date: day.date, count: day.count };
+      }
+    } else {
+      running = 0;
+    }
+
+    const monthKey = day.date.slice(0, 7);
+    monthMap.set(monthKey, (monthMap.get(monthKey) ?? 0) + day.count);
+  }
+
+  // Current streak counting backwards from most recent day (allowing today = 0 if yesterday > 0)
+  let currentStreak = 0;
+  for (let i = days.length - 1; i >= 0; i -= 1) {
+    const count = days[i].count;
+    if (count > 0) {
+      currentStreak += 1;
+    } else if (i === days.length - 1) {
+      continue;
+    } else {
+      break;
+    }
+  }
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyTotals: MonthlyContribution[] = Array.from(monthMap.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(-12)
+    .map(([monthKey, count]) => {
+      const monthIdx = Number(monthKey.split('-')[1]) - 1;
+      return {
+        monthKey,
+        label: monthNames[monthIdx] ?? monthKey,
+        count,
+      };
+    });
+
+  const totalLastYear = totalOverride ?? computedTotal;
+  const averagePerActiveDay = activeDays > 0 ? Math.round((totalLastYear / activeDays) * 10) / 10 : 0;
+
+  return {
+    totalLastYear,
+    days,
+    currentStreak,
+    longestStreak,
+    activeDays,
+    averagePerActiveDay,
+    bestDay,
+    monthlyTotals,
+    syncedAt: new Date().toISOString(),
+    isFallback,
+  };
+}
+
+export function getFallbackContributions(): GitHubContributionsData {
+  const days: ContributionDay[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let offset = 364; offset >= 0; offset -= 1) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - offset);
+    const iso = d.toISOString().slice(0, 10);
+    // Deterministic realistic pattern when offline
+    const seed = (offset * 17 + d.getDay() * 31) % 23;
+    const count = seed < 6 ? 0 : seed < 12 ? 3 : seed < 17 ? 9 : seed < 21 ? 18 : 34;
+    const level: ContributionLevel =
+      count === 0 ? 0 : count <= 4 ? 1 : count <= 10 ? 2 : count <= 20 ? 3 : 4;
+    days.push({ date: iso, count, level });
+  }
+
+  return summarizeContributions(days, undefined, true);
+}
+
+export async function fetchGitHubContributions(
+  signal?: AbortSignal,
+  forceRefresh = false
+): Promise<GitHubContributionsData> {
+  if (!forceRefresh) {
+    const cached = readCache<GitHubContributionsData>(SITE_CONFIG.contributionsCacheKey);
+    if (cached) return cached;
+  }
+
+  const url = `${SITE_CONFIG.githubContributionsApi}/${SITE_CONFIG.githubUsername}?y=last`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) {
+    throw new Error(`Contributions API returned ${res.status}`);
+  }
+
+  const json = (await res.json()) as {
+    total?: { lastYear?: number };
+    contributions?: Array<{ date: string; count: number; level: number }>;
+  };
+
+  const days: ContributionDay[] = (json.contributions ?? []).map((item) => {
+    const clampedLevel = Math.max(0, Math.min(4, Number(item.level ?? 0))) as ContributionLevel;
+    return {
+      date: String(item.date),
+      count: Number(item.count ?? 0),
+      level: clampedLevel,
+    };
+  });
+
+  if (days.length === 0) {
+    throw new Error('Contributions API returned empty dataset');
+  }
+
+  const data = summarizeContributions(days, json.total?.lastYear, false);
+  writeCache(SITE_CONFIG.contributionsCacheKey, data);
+  return data;
+}
+
+export function getFallbackEvents(): GitHubActivityEvent[] {
+  return [
+    {
+      id: 'fallback-1',
+      type: 'PullRequestEvent',
+      repoName: 'YWanigaarachchi/Yasas-Wanigaarachchi',
+      repoUrl: 'https://github.com/YWanigaarachchi/Yasas-Wanigaarachchi',
+      createdAt: new Date().toISOString(),
+      summary: 'Updated pull request on Yasas-Wanigaarachchi',
+    },
+    {
+      id: 'fallback-2',
+      type: 'PushEvent',
+      repoName: 'YWanigaarachchi/Siyala_HMS1',
+      repoUrl: 'https://github.com/YWanigaarachchi/Siyala_HMS1',
+      createdAt: '2026-11-05T10:38:55Z',
+      summary: 'Pushed commits to Siyala_HMS1',
+    },
+    {
+      id: 'fallback-3',
+      type: 'PushEvent',
+      repoName: 'YWanigaarachchi/Resortify-hms',
+      repoUrl: 'https://github.com/YWanigaarachchi/Resortify-hms',
+      createdAt: '2026-08-14T06:36:43Z',
+      summary: 'Pushed commits to Resortify-hms',
+    },
+  ];
+}
+
+function describeEvent(type: string, repoShort: string, payload: Record<string, unknown>): string {
+  switch (type) {
+    case 'PushEvent': {
+      const commits = Array.isArray(payload.commits) ? payload.commits.length : 0;
+      return commits > 0
+        ? `Pushed ${commits} commit${commits === 1 ? '' : 's'} to ${repoShort}`
+        : `Pushed updates to ${repoShort}`;
+    }
+    case 'PullRequestEvent': {
+      const action = typeof payload.action === 'string' ? payload.action : 'updated';
+      return `${action.charAt(0).toUpperCase() + action.slice(1)} a pull request in ${repoShort}`;
+    }
+    case 'CreateEvent': {
+      const refType = typeof payload.ref_type === 'string' ? payload.ref_type : 'resource';
+      return `Created ${refType} in ${repoShort}`;
+    }
+    case 'WatchEvent':
+      return `Starred ${repoShort}`;
+    case 'ForkEvent':
+      return `Forked ${repoShort}`;
+    case 'IssuesEvent': {
+      const action = typeof payload.action === 'string' ? payload.action : 'updated';
+      return `${action.charAt(0).toUpperCase() + action.slice(1)} an issue in ${repoShort}`;
+    }
+    default:
+      return `${type.replace('Event', '')} activity on ${repoShort}`;
+  }
+}
+
+export async function fetchGitHubEvents(
+  signal?: AbortSignal,
+  forceRefresh = false
+): Promise<GitHubActivityEvent[]> {
+  if (!forceRefresh) {
+    const cached = readCache<GitHubActivityEvent[]>(SITE_CONFIG.eventsCacheKey);
+    if (cached) return cached;
+  }
+
+  const url = `${SITE_CONFIG.githubApiBase}/users/${SITE_CONFIG.githubUsername}/events/public?per_page=15`;
+  const res = await fetch(url, {
+    headers: { Accept: 'application/vnd.github+json' },
+    signal,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Events API returned ${res.status}`);
+  }
+
+  const raw = (await res.json()) as Array<Record<string, unknown>>;
+  const events: GitHubActivityEvent[] = raw.slice(0, 10).map((item, index) => {
+    const repoObj = (item.repo as Record<string, unknown>) ?? {};
+    const repoName = String(repoObj.name ?? `${SITE_CONFIG.githubUsername}/repository`);
+    const repoShort = repoName.includes('/') ? repoName.split('/')[1] : repoName;
+    const type = String(item.type ?? 'PushEvent');
+    const payload = (item.payload as Record<string, unknown>) ?? {};
+
+    return {
+      id: String(item.id ?? `evt-${index}`),
+      type,
+      repoName,
+      repoUrl: `https://github.com/${repoName}`,
+      createdAt: String(item.created_at ?? ''),
+      summary: describeEvent(type, repoShort, payload),
+    };
+  });
+
+  writeCache(SITE_CONFIG.eventsCacheKey, events);
+  return events;
 }

@@ -23,19 +23,23 @@ flowchart TB
 
     subgraph Hooks["Custom Hooks Layer"]
       H1["useGitHubStats()"]
+      H1b["useGitHubContributions()"]
       H2["useActiveSection()"]
       H3["useScrollProgress()"]
+      H4["usePageRoute() (#/github)"]
     end
 
     subgraph Presentation["Presentation Layer"]
       Layout["Layout: Navbar · ScrollProgressBar · Footer"]
-      Sections["Sections: Hero · About · Skills · Projects · Journey · GitHubTelemetry · Contact"]
+      Sections["Home Sections: Hero · About · Skills · Projects · Journey · GitHubTelemetry · Contact"]
+      Pages["Dedicated Pages: GitHubTelemetryPage (#/github)"]
+      GitHubUI["GitHub Widgets: ContributionHeatmap (365d) · MonthlyActivityChart"]
       UI["UI Primitives: SectionHeader · ProjectModal"]
     end
 
     subgraph DataLayer["Data & Service Layer"]
       Static["Static Curated Data (profile, projects, skills, timeline)"]
-      Service["githubService.ts"]
+      Service["githubService.ts (Repos + Contributions + Events)"]
       Cache[("sessionStorage (15m TTL)")]
     end
 
@@ -43,16 +47,21 @@ flowchart TB
     Shell --> Presentation
     Sections --> Static
     Sections --> UI
+    Sections --> GitHubUI
+    Pages --> GitHubUI
     H1 --> Service
+    H1b --> Service
     Service <--> Cache
   end
 
   subgraph External["External Services"]
-    GH["GitHub REST API v3 (/users/YWanigaarachchi & /repos)"]
+    GH["GitHub REST API v3 (/users, /repos, /events/public)"]
+    Contrib["GitHub Contributions API (365-Day Calendar JSON)"]
     Vercel["Live Project Demos (*.vercel.app)"]
   end
 
   Service -- "HTTPS JSON (AbortController)" --> GH
+  Service -- "HTTPS JSON (365d Calendar)" --> Contrib
   Sections -. "Outbound Demo Links" .-> Vercel
 ```
 
@@ -84,14 +93,21 @@ Yasas-Wanigaarachchi/
     ├── services/
     │   └── githubService.ts            # GitHub REST client + TTL cache + fallback factory
     ├── hooks/
-    │   ├── useGitHubStats.ts           # Live telemetry hook with AbortController cleanup
+    │   ├── useGitHubStats.ts           # Live repo & profile telemetry hook
+    │   ├── useGitHubContributions.ts   # 365-day contributions & public events hook
+    │   ├── usePageRoute.ts             # Hash-synced SPA routing (Home / #/github)
     │   ├── useActiveSection.ts         # IntersectionObserver scroll-spy for Navbar
     │   └── useScrollProgress.ts        # Passive scroll listener for progress bar
+    ├── pages/
+    │   └── GitHubTelemetryPage.tsx     # Dedicated Live Telemetry & Contributions Page
     ├── app/
-    │   ├── App.tsx                     # Root composition shell
+    │   ├── App.tsx                     # Root composition shell & view switcher
     │   └── providers/
     │       └── ThemeProvider.tsx       # Persistent Dark/Light theme context
     └── components/
+        ├── github/
+        │   ├── ContributionHeatmap.tsx # 53-week x 7-day interactive contributions calendar
+        │   └── MonthlyActivityChart.tsx # 12-month animated velocity bar chart
         ├── ui/
         │   ├── SectionHeader.tsx       # Standardized indexed section headings (01 // ...)
         │   └── ProjectModal.tsx        # Accessible architecture deep-dive modal

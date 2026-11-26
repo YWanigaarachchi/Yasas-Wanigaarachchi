@@ -1,7 +1,10 @@
 export const SITE_CONFIG = {
   githubUsername: 'YWanigaarachchi',
   githubApiBase: 'https://api.github.com',
+  githubContributionsApi: 'https://github-contributions-api.jogruber.de/v4',
   cacheKey: 'yw_portfolio_gh_v1',
+  contributionsCacheKey: 'yw_portfolio_gh_contrib_v1',
+  eventsCacheKey: 'yw_portfolio_gh_events_v1',
   cacheTtlMs: 15 * 60 * 1000, // 15 minutes
   navItems: [
     { id: 'about', label: 'About', code: '01' },

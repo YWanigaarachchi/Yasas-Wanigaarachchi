@@ -120,3 +120,41 @@ export interface GitHubTelemetryData {
   syncedAt: string;
   isFallback: boolean;
 }
+
+export type ContributionLevel = 0 | 1 | 2 | 3 | 4;
+
+export interface ContributionDay {
+  date: string;
+  count: number;
+  level: ContributionLevel;
+}
+
+export interface MonthlyContribution {
+  monthKey: string;
+  label: string;
+  count: number;
+}
+
+export interface GitHubContributionsData {
+  totalLastYear: number;
+  days: ContributionDay[];
+  currentStreak: number;
+  longestStreak: number;
+  activeDays: number;
+  averagePerActiveDay: number;
+  bestDay: { date: string; count: number } | null;
+  monthlyTotals: MonthlyContribution[];
+  syncedAt: string;
+  isFallback: boolean;
+}
+
+export interface GitHubActivityEvent {
+  id: string;
+  type: string;
+  repoName: string;
+  repoUrl: string;
+  createdAt: string;
+  summary: string;
+}
+
+export type PageRoute = 'home' | 'github';

@@ -92,6 +92,17 @@ export function HeroSection({ telemetry }: HeroSectionProps) {
             </a>
 
             <a
+              href={DEVELOPER_PROFILE.company.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-700 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400 hover:bg-cyan-500/20 dark:text-cyan-300"
+            >
+              <Rocket className="h-4 w-4" />
+              <span>Visit Softgenix.lk</span>
+              <ExternalLink className="h-3.5 w-3.5 opacity-75" />
+            </a>
+
+            <a
               href={`https://github.com/${DEVELOPER_PROFILE.handle}`}
               target="_blank"
               rel="noreferrer"
