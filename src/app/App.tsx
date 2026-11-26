@@ -9,23 +9,56 @@ import { ProjectsSection } from '@/components/sections/ProjectsSection';
 import { JourneySection } from '@/components/sections/JourneySection';
 import { GitHubTelemetrySection } from '@/components/sections/GitHubTelemetrySection';
 import { ContactSection } from '@/components/sections/ContactSection';
+import { GitHubTelemetryPage } from '@/pages/GitHubTelemetryPage';
 import { useGitHubStats } from '@/hooks/useGitHubStats';
+import { useGitHubContributions } from '@/hooks/useGitHubContributions';
+import { usePageRoute } from '@/hooks/usePageRoute';
 
 function PortfolioShell() {
-  const { data: telemetry, isLoading } = useGitHubStats();
+  const { route, navigateTo } = usePageRoute();
+  const { data: telemetry, isLoading: isStatsLoading, refresh: refreshStats } = useGitHubStats();
+  const {
+    contributions,
+    events,
+    isLoading: isContribLoading,
+    refresh: refreshContributions,
+  } = useGitHubContributions();
+
+  const handleRefreshAll = () => {
+    refreshStats();
+    refreshContributions();
+  };
 
   return (
     <div className="min-h-screen bg-engineering-grid">
       <ScrollProgressBar />
-      <Navbar />
+      <Navbar route={route} onNavigate={navigateTo} />
       <main>
-        <HeroSection telemetry={telemetry} />
-        <AboutSection />
-        <SkillsSection />
-        <ProjectsSection />
-        <JourneySection />
-        <GitHubTelemetrySection telemetry={telemetry} isLoading={isLoading} />
-        <ContactSection />
+        {route === 'github' ? (
+          <GitHubTelemetryPage
+            telemetry={telemetry}
+            contributions={contributions}
+            events={events}
+            isLoading={isStatsLoading || isContribLoading}
+            onRefresh={handleRefreshAll}
+            onBackHome={() => navigateTo('home')}
+          />
+        ) : (
+          <>
+            <HeroSection telemetry={telemetry} />
+            <AboutSection />
+            <SkillsSection />
+            <ProjectsSection />
+            <JourneySection />
+            <GitHubTelemetrySection
+              telemetry={telemetry}
+              contributions={contributions}
+              isLoading={isStatsLoading || isContribLoading}
+              onOpenFullPage={() => navigateTo('github')}
+            />
+            <ContactSection />
+          </>
+        )}
       </main>
       <Footer />
     </div>
