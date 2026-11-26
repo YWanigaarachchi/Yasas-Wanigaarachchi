@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   fetchGitHubTelemetry,
   getFallbackGitHubTelemetry,
@@ -9,10 +9,9 @@ export function useGitHubStats() {
   const [data, setData] = useState<GitHubTelemetryData>(() => getFallbackGitHubTelemetry());
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetchGitHubTelemetry(controller.signal)
+  const load = useCallback((forceRefresh = false, signal?: AbortSignal) => {
+    setIsLoading(true);
+    fetchGitHubTelemetry(signal, forceRefresh)
       .then((liveData) => {
         setData(liveData);
       })
@@ -20,11 +19,19 @@ export function useGitHubStats() {
         // Keep curated fallback silently on network / rate-limit failure
       })
       .finally(() => {
-        setIsLoading(false);
+        if (!signal?.aborted) setIsLoading(false);
       });
-
-    return () => controller.abort();
   }, []);
 
-  return { data, isLoading };
+  useEffect(() => {
+    const controller = new AbortController();
+    load(false, controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  const refresh = useCallback(() => {
+    load(true);
+  }, [load]);
+
+  return { data, isLoading, refresh };
 }
